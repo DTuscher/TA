@@ -6,7 +6,6 @@ from realsense_sensor import RealsenseSensor
 import imutils
 import numpy as np
 
-#halloe
 
 def findContoursInMask(mask):
     cnts = cv2.findContours(mask, cv2.RETR_EXTERNAL,
@@ -82,6 +81,11 @@ def plotCircleAroundCenter(img, x, y, color=(255, 0, 0)):
     img = cv2.circle(img,(int(x),int(y)),2,color,3)
     return img
 
+def plotBoundingRect(img, c):
+    rect = cv2.boundingRect(c)
+    x,y,w,h = rect
+    return cv2.rectangle(img,(x,y),(x+w,y+h),(0,0,255),2)
+
 
 def find_shapes_in_image(edged):
     rects = []
@@ -118,59 +122,72 @@ while True:
     gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY) 
     img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR) [55:800, 100:525]
 
+    blur_img = cv2.GaussianBlur(img.copy(), (5,5), 5)
+ 
+  
+    edged = cv2.Canny(blur_img, 80, 150)
+    #edged = cv2.erode(edged, None, iterations=2)
+    edged = cv2.dilate(edged, None, iterations=2)
 
-    cv2.imshow("Gray", gray)
-    mask_green = greenMask(img)
-    mask_red = redMask(img)
-    mask = mask_red | mask_green
-    ret = findRectsInMask(mask)
-    if ret is not None:
-        centers, cnts = ret
-        for c in centers:
-            depthval = calcDepth(d, int(c[1]), int(c[0]))
-            print(depthval)
-            img = plotCircleAroundCenter(img, c[0], c[1])
-            
+    blur_d = cv2.GaussianBlur(d.copy(), (5,5), 20)
+    normal_d = (blur_d / d.max()) * 255.0
+    normal_d = normal_d.astype(np.uint8)
+    edged_depth = cv2.Canny(normal_d, 180, 255 )
 
-        cv2.drawContours(img, cnts, -1, (0, 255, 0), 2)
 
-    #cv2.drawContours(d, d_rects, -1, (0, 255, 0), 2)
 
-    cv2.imshow("RGB", img)
-    cv2.imshow("Depth", d)
-    edged = cv2.Canny(gray, 30, 150)
+    rects = []
+    out_cnts = []
+    blurred = cv2.GaussianBlur(edged, (5, 5), 20)
+    thresh = cv2.threshold(blurred, 60, 255, cv2.THRESH_BINARY)[1]
+ 
+    cnts = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL,
+	    cv2.CHAIN_APPROX_SIMPLE)
+    cnts = imutils.grab_contours(cnts)
+    if cnts:
+
+        max_contour_all = max(cnts, key=cv2.contourArea)
+
+        mask = np.zeros(img.shape[:2])
+        cv2.drawContours(mask, max_contour_all, -1, (255), 1)
+
+        cv2.imshow("biggest_cont", mask)
+
+        ((x,y), r) = cv2.minEnclosingCircle(max_contour_all)
+        print(calcDepth(d, int(y), int(x)))
+        
+        img = plotCircleAroundCenter(img, x, y)
+        img = plotBoundingRect(img, max_contour_all)
+
+
+
+    for i, c in enumerate(cnts):
+        M = cv2.moments(c)
+
+        if M["m00"] == 0:
+            continue
+        cX = int((M["m10"] / M["m00"]))
+        cY = int((M["m01"] / M["m00"]))
+        peri = cv2.arcLength(c, True)
+   
+
+        approx = cv2.approxPolyDP(c, 0.1 * peri, True)
+        if len(approx) == 4:
+
+            rect = cv2.boundingRect(approx)
+            rects.append(c)
+            out_cnts.append(c)
+    if rects:
+        max_contour =  max(rects, key = cv2.contourArea)
+        mask = np.zeros(img.shape[:2])
+        cv2.drawContours(mask, max_contour, -1, (255),1)
+        cv2.imshow("hull", mask)  
+
     cv2.imshow("Edged", edged)
+    cv2.imshow("Edged_depthj", edged_depth)
+    cv2.imshow("Depth", d)
     cv2.imshow("img", img)
-
-
         
-        
-        
-    contourss = cv2.findContours
-
-    
-    
-    for contour in contourss:
-        approx = cv2.approxPolyDP(contour, 0.01* cv2.arcLength(contour, True), True)
-        cv2.drawContours(img, [approx], 0, (0, 0, 0), 5)
-        x = approx.ravel()[0]
-        y = approx.ravel()[1] - 5
-        if len(approx) == 3:
-            cv2.putText(img, "Triangle", (x, y), cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 0, 0))
-        elif len(approx) == 4:
-            x1 ,y1, w, h = cv2.boundingRect(approx)
-            aspectRatio = float(w)/h
-            print(aspectRatio)
-            if aspectRatio >= 0.95 and aspectRatio <= 1.05:
-                cv2.putText(img, "square", (x, y), cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 0, 0))
-            else:
-                cv2.putText(img, "rectangle", (x, y), cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 0, 0))
-        elif len(approx) == 5:
-            cv2.putText(img, "Pentagon", (x, y), cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 0, 0))
-        elif len(approx) == 10:
-            cv2.putText(img, "Star", (x, y), cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 0, 0))
-        else:
-            cv2.putText(img, "Circle", (x, y), cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 0, 0))
     k = cv2.waitKey(33)
     if k == 27:
         break
