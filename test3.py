@@ -6,6 +6,7 @@ from realsense_sensor import RealsenseSensor
 import imutils
 import numpy as np
 
+#halloe
 
 def findContoursInMask(mask):
     cnts = cv2.findContours(mask, cv2.RETR_EXTERNAL,
