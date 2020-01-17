@@ -103,6 +103,14 @@ class RealsenseSensor():
         self._pipe.stop()
         self._running = False
         return True
+    
+    def getIntrinsics(self):
+        return {
+            "px": self._intrinsics.ppx,
+            "fx": self._intrinsics.fx,
+            "py": self._intrinsics.ppy,
+            "fy": self._intrinsics.fy
+        }
 
     def _to_numpy(self, frame, dtype):
         arr = np.asanyarray(frame.get_data(), dtype=dtype)

@@ -5,93 +5,7 @@ import cv2
 from realsense_sensor import RealsenseSensor
 import imutils
 import numpy as np
-
-
-def findContoursInMask(mask):
-    cnts = cv2.findContours(mask, cv2.RETR_EXTERNAL,
-		cv2.CHAIN_APPROX_SIMPLE)
-    if cnts:
-        cnts = imutils.grab_contours(cnts)
-        return cnts
-
-def redMask(img_bgr):
-    img_hsv = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2HSV)
-    mask1 = cv2.inRange(img_hsv, (0, 100, 100), (5, 255, 255))
-    mask2 = cv2.inRange(img_hsv, (160, 100, 100), (179, 255, 255))
-    mask = mask1 | mask2
-    mask = cv2.erode(mask, None, iterations=2)
-    mask = cv2.dilate(mask, None, iterations=2)
-    return mask
-
-def greenMask(img_bgr):
-    greenLower = (40, 86, 6)
-    greenUpper = (64, 255, 255)
-    img_hsv = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2HSV)
-    mask = cv2.inRange(img_hsv, greenLower, greenUpper)
-    mask = cv2.erode(mask, None, iterations=2)
-    mask = cv2.dilate(mask, None, iterations=2)
-    return mask
-
-
-def calcDepth(d, u, v):
-    #range_x = [-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5]
-    #range_y = [-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5]
-    range_x = np.arange(-3, 4, 1)
-    range_y = np.arange(-3, 4, 1)
-    sum_ranges = len(range_x) * len(range_y)
-    cumulated_depth = 0
-    for x in range_x:
-        for y in range_y:
-            if d.shape[0] > u+x and u+x > 0 and v+y > 0 and v+y < d.shape[1]:
-                val = d[u + x][v + y]
-                if np.isnan(val):
-                    sum_ranges -= 1
-                else:
-                    cumulated_depth += val
-            else:
-                sum_ranges -= 1
-    return cumulated_depth / (sum_ranges)
-
-
-def findRectsInMask(mask):
-    cnts = findContoursInMask(mask)
-    centers = []
-    if cnts:
-        for c in cnts:
-            #c = max(cnts, key=cv2.contourArea)
-            ((x,y), r) = cv2.minEnclosingCircle(c)
-            M = cv2.moments(c)
-            center=(int(M["m10"]/M["m00"]),int(M["m01"]/M["m00"]))
-            centers.append((x,y))
-        return centers, cnts
-
-def plotCircleAroundCenter(img, x, y, color=(255, 0, 0)):
-    img = cv2.circle(img,(int(x),int(y)),2,color,3)
-    return img
-
-
-def find_shapes_in_image(gray):
-    rects = []
-    out_cnts = []
-    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-    thresh = cv2.threshold(blurred, 60, 255, cv2.THRESH_BINARY)[1]
- 
-    cnts = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL,
-	    cv2.CHAIN_APPROX_SIMPLE)
-    cnts = imutils.grab_contours(cnts)
-    for c in cnts:
-        M = cv2.moments(c)
-        if M["m00"] == 0:
-            continue
-        cX = int((M["m10"] / M["m00"]))
-        cY = int((M["m01"] / M["m00"]))
-        peri = cv2.arcLength(c, True)
-        approx = cv2.approxPolyDP(c, 0.04 * peri, True)
-        if len(approx) == 4:
-            rect = cv2.boundingRect(approx)
-            rects.append(rect)
-            out_cnts.append(c)
-    return rects, out_cnts
+import cv_utils
 
 
 cam = RealsenseSensor("realsense_config.json") 
@@ -102,35 +16,15 @@ img, d = cam.frames()
 
 while True:
     img, d = cam.frames()
-    gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY) [20:800, 120:560]
-    img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+    
+    graspPosition = cv_utils.calcGraspPoint(img, d, intrinsics=cam.getIntrinsics())
+    if graspPosition:
+        
+        x,y,z = graspPosition
+        print(x,y,z)
 
-
-    cv2.imshow("Gray", gray)
-    mask_green = greenMask(img)
-    mask_red = redMask(img)
-    mask = mask_red | mask_green
-    ret = findRectsInMask(mask)
-    if ret is not None:
-        centers, cnts = ret
-        for c in centers:
-            depthval = calcDepth(d, int(c[1]), int(c[0]))
-            print(depthval)
-            img = plotCircleAroundCenter(img, c[0], c[1])
-            
-
-        cv2.drawContours(img, cnts, -1, (0, 255, 0), 2)
-
-    #cv2.drawContours(d, d_rects, -1, (0, 255, 0), 2)
-
-    cv2.imshow("RGB", img)
-    cv2.imshow("Depth", d)
-
+    
+        
     k = cv2.waitKey(33)
     if k == 27:
         break
-
-
-
-
-

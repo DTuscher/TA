@@ -1,11 +1,7 @@
-import os
-print(os.getcwd())
-import matplotlib.pyplot as plt
-import cv2
-from realsense_sensor import RealsenseSensor
-import imutils
+import cv2 
 import numpy as np
-
+import imutils
+from realsense_sensor import RealsenseSensor
 
 def findContoursInMask(mask):
     cnts = cv2.findContours(mask, cv2.RETR_EXTERNAL,
@@ -106,18 +102,10 @@ def find_shapes_in_image(edged):
             rects.append(rect)
             out_cnts.append(c)
     return rects, out_cnts
-    
 
-cam = RealsenseSensor("realsense_config.json") 
-cam.start()
-img, d = cam.frames()
-
-
-
-while True:
-    img, d = cam.frames()
+def calcGraspPoint(img, d, intrinsics):
     gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY) 
-    img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR) [55:800, 100:525]
+    img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
 
     blur_img = cv2.GaussianBlur(img.copy(), (5,5), 5)
  
@@ -132,7 +120,7 @@ while True:
     edged_depth = cv2.Canny(normal_d, 180, 255 )
 
 
-
+    
     rects = []
     out_cnts = []
     blurred = cv2.GaussianBlur(edged, (5, 5), 20)
@@ -152,14 +140,27 @@ while True:
 
         ((x,y), r) = cv2.minEnclosingCircle(max_contour_all)
         
-        print(calcDepth(d, int(y), int(x)))
+        depthVal = calcDepth(d, int(y), int(x))
         
         img = plotCircleAroundCenter(img, x, y)
         img = plotBoundingRect(img, max_contour_all)
+
+        cv2.imshow("Depth", d)
+        cv2.imshow("img", img)
+
+    
+
+        p_x = -depthVal* (x - intrinsics["px"]) / intrinsics["fx"]
+        p_y = depthVal * (x - intrinsics["py"])/ intrinsics["fy"]
+        p_z = depthVal
+
+    
+
+        return p_x, p_y, p_z
+
+    
         
    
-
-
 
     for i, c in enumerate(cnts):
         M = cv2.moments(c)
@@ -185,15 +186,7 @@ while True:
         
         cv2.imshow("hull", mask)
         img = plotBoundingRect1(img,max_contour) 
-        img = plotCircleAroundCenter(img, x, y) 
-        
-
-    cv2.imshow("Edged", edged)
-    cv2.imshow("Edged_depthj", edged_depth)
-    cv2.imshow("Depth", d)
-    cv2.imshow("img", img)
+        img = plotCircleAroundCenter(img, x, y)
     
-        
-    k = cv2.waitKey(33)
-    if k == 27:
-        break
+
+    
