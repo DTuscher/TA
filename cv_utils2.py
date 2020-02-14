@@ -1,13 +1,7 @@
-import os
-print(os.getcwd())
-import matplotlib.pyplot as plt
-import cv2
-from realsense_sensor import RealsenseSensor
-import imutils
+import cv2 
 import numpy as np
-
-
-# great git test
+import imutils
+from realsense_sensor import RealsenseSensor
 
 def findContoursInMask(mask):
     cnts = cv2.findContours(mask, cv2.RETR_EXTERNAL,
@@ -67,22 +61,34 @@ def findRectsInMask(mask):
             centers.append((x,y))
         return centers, cnts
 
-def findCirclesInMask(mask):
-    circ=findCirclesInMask
+def findCirclesInMask(gray):
+    img_c = cv2.medianBlur(gray,	5)
+    circles	= cv2.HoughCircles(img_c,cv2.HOUGH_GRADIENT,1,120,param1=100,param2=30,minRadius=0,maxRadius=0)
+    circles	= np.uint16(np.around(circles))
+ 
+    for	i in circles[0,:]:
+	    #	draw	the	outer	circle
+		            cv2.circle(img_c,(i[0],i[1]),i[2],(0,255,0),6)
+		#	draw	the	center	of	the	circle
+		            cv2.circle(img_c,(i[0],i[1]),2,(0,0,255),3)
+ 
+    cimg = cv2.cvtColor(img_c,cv2.COLOR_GRAY2BGR)
+    return cimg
 
 
 def plotCircleAroundCenter(img, x, y, color=(255, 0, 0)):
     img = cv2.circle(img,(int(x),int(y)),2,color,3)
-    
     return img
-
 
 def plotBoundingRect(img, c):
     rect = cv2.boundingRect(c)
     x,y,w,h = rect
     return cv2.rectangle(img,(x,y),(x+w,y+h),(0,0,255),2)
 
-
+def plotBoundingRect1 (img, c):
+    rect = cv2.boundingRect(c)
+    x,y,w,h = rect
+    return cv2.rectangle(img,(x,y),(x+w,y+h),(-1,255,3),2)
 
 
 def find_shapes_in_image(edged):
@@ -107,21 +113,14 @@ def find_shapes_in_image(edged):
             rects.append(rect)
             out_cnts.append(c)
     return rects, out_cnts
-    
 
-cam = RealsenseSensor("realsense_config.json") 
-cam.start()
-img, d = cam.frames()
-
-
-
-while True:
-    img, d = cam.frames()
+def calcGraspPoint(img, d, intrinsics):
     gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY) 
-    img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR) [55:800, 100:525]
-
+    img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)[55:800, 100:525]
+    
+    
     blur_img = cv2.GaussianBlur(img.copy(), (5,5), 5)
- 
+    
   
     edged = cv2.Canny(blur_img, 80, 150)
     #edged = cv2.erode(edged, None, iterations=2)
@@ -134,31 +133,27 @@ while True:
 
     
     
-    img_c = cv2.medianBlur(gray,	5)
+ 
     
  
-    #center
- 
-    circles	= cv2.HoughCircles(img_c,cv2.HOUGH_GRADIENT,1,120,param1=100,param2=30,minRadius=0,maxRadius=0)
-    circles	= np.uint16(np.around(circles))
- 
-    for	i in circles[0,:]:
-	    #	draw	the	outer	circle
-		            cv2.circle(img_c,(i[0],i[1]),i[2],(0,255,0),6)
-		#	draw	the	center	of	the	circle
-		            cv2.circle(img_c,(i[0],i[1]),2,(0,0,255),3)
- 
-    cimg = cv2.cvtColor(img_c,cv2.COLOR_GRAY2BGR)
-    cv2.imshow("HoughCirlces",	cimg)
-
-
-
+    
+    
+    
     rects = []
     out_cnts = []
     blurred = cv2.GaussianBlur(edged, (5, 5), 20)
     thresh = cv2.threshold(blurred, 60, 255, cv2.THRESH_BINARY)[1]
-    contours,hierarchy = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    
+   
+    
+ 
+    
+ 
 
+
+
+    contours,hierarchy = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+       
     cnts = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL,
 	    cv2.CHAIN_APPROX_SIMPLE)
     cnts = imutils.grab_contours(cnts)
@@ -169,17 +164,31 @@ while True:
         cv2.drawContours(mask, max_contour_all, -1, (255), 1)
         
         cv2.imshow("biggest_cont", mask)
-
-        ((x,y), r) = cv2.minEnclosingCircle(max_contour_all)
         
-        print(calcDepth(d, int(y), int(x)))
+        ((x,y), i) = cv2.minEnclosingCircle(max_contour_all)
+        
+        depthVal = calcDepth(d, int(y), int(x))
         
         img = plotCircleAroundCenter(img, x, y)
         img = plotBoundingRect(img, max_contour_all)
         
+        cv2.drawContours(img,cnts,-1, (0, 255, 0), 2)
+        cv2.imshow("Depth", d)
+        cv2.imshow("img", img)
+        
+    
+
+        c_x = -depthVal* (x - intrinsics["px"]) / intrinsics["fx"]
+        c_y = depthVal * (y - intrinsics["py"])/ intrinsics["fy"]
+        c_z = depthVal
+
+    
+
+        return c_x, c_y, c_z
+
+    
+        
    
-
-
 
     for i, c in enumerate(cnts):
         M = cv2.moments(c)
@@ -202,19 +211,10 @@ while True:
         
         mask = np.zeros(img.shape[:2])
         cv2.drawContours(mask, max_contour, -1, (255),1)
-        cv2.drawContours(img, [c], -1, (0, 255, 0), 2)
+        
         cv2.imshow("hull", mask)
-        
-        img = plotBoundingRect(img,max_contour) 
-        img = plotCircleAroundCenter(img, x, y) 
-        
-
-    cv2.imshow("Edged", edged)
-    cv2.imshow("Edged_depthj", edged_depth)
-    cv2.imshow("Depth", d)
-    cv2.imshow("img", img)
+        img = plotBoundingRect1(img,max_contour) 
+        img = plotCircleAroundCenter(img, x, y)
     
-        
-    k = cv2.waitKey(33)
-    if k == 27:
-        break
+
+    

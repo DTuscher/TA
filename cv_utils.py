@@ -61,8 +61,43 @@ def findRectsInMask(mask):
             centers.append((x,y))
         return centers, cnts
 
-def findCirclesInMask(mask):
-    circ=findCirclesInMask
+def findCirclesInMask(img, d, intrinsics):
+    thresh = preprocess_img(img)
+    gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    img_c = cv2.medianBlur(gray,	5)
+    circles	= cv2.HoughCircles(img_c,cv2.HOUGH_GRADIENT,1,120,param1=100,param2=30,minRadius=0,maxRadius=100)
+    
+ 
+    # detect circles in the image
+    #circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, 1.2, 100)
+    # ensure at least some circles were found
+    if circles is not None:
+	# convert the (x, y) coordinates and radius of the circles to integers
+	    circles = np.round(circles[0, :]).astype("int")
+	    # loop over the (x, y) coordinates and radius of the circles
+	    for (x, y, r) in circles:
+		    # draw the circle in the output image, then draw a rectangle
+		    # corresponding to the center of the circle
+		    cv2.circle(img, (x, y), r, (0, 255, 0), 4)
+		    cv2.rectangle(img, (x - 5, y - 5), (x + 5, y + 5), (0, 128, 255), -1)
+	        # show the output image
+	        
+
+        
+   
+        
+    depthVal = calcDepth(d, int(y), int(x))
+        
+        
+    c_x = -depthVal* (x - intrinsics["px"]) / intrinsics["fx"]
+    c_y = depthVal * (y - intrinsics["py"])/ intrinsics["fy"]
+    c_z = depthVal
+
+    
+    cv2.imshow("output", np.hstack([img]))
+    return c_x, c_y, c_z
+
+    
 
 
 def plotCircleAroundCenter(img, x, y, color=(255, 0, 0)):
@@ -103,9 +138,13 @@ def find_shapes_in_image(edged):
             out_cnts.append(c)
     return rects, out_cnts
 
-def calcGraspPoint(img, d, intrinsics):
+
+
+def preprocess_img(img):
+    
+
     gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY) 
-    img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+    img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)[55:800, 100:525]
 
     blur_img = cv2.GaussianBlur(img.copy(), (5,5), 5)
  
@@ -114,18 +153,27 @@ def calcGraspPoint(img, d, intrinsics):
     #edged = cv2.erode(edged, None, iterations=2)
     edged = cv2.dilate(edged, None, iterations=2)
 
-    blur_d = cv2.GaussianBlur(d.copy(), (5,5), 20)
-    normal_d = (blur_d / d.max()) * 255.0
-    normal_d = normal_d.astype(np.uint8)
-    edged_depth = cv2.Canny(normal_d, 180, 255 )
+    #blur_d = cv2.GaussianBlur(d.copy(), (5,5), 20)
+    #normal_d = (blur_d / d.max()) * 255.0
+    #normal_d = normal_d.astype(np.uint8)
+    #edged_depth = cv2.Canny(normal_d, 180, 255 )
 
 
     
-    rects = []
-    out_cnts = []
+    #rects = []
+    #out_cnts = []
     blurred = cv2.GaussianBlur(edged, (5, 5), 20)
     thresh = cv2.threshold(blurred, 60, 255, cv2.THRESH_BINARY)[1]
-    contours,hierarchy = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    return thresh
+
+
+
+def calcGraspPointContours(img, d, intrinsics):
+    thresh = preprocess_img(img)
+    rects = []
+    out_cnts = []
+    #todo hough transformation 
+    #contours,hierarchy = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
 
     cnts = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL,
 	    cv2.CHAIN_APPROX_SIMPLE)
@@ -144,19 +192,19 @@ def calcGraspPoint(img, d, intrinsics):
         
         img = plotCircleAroundCenter(img, x, y)
         img = plotBoundingRect(img, max_contour_all)
-
+        cv2.drawContours(img,cnts,-1, (0, 255, 0), 2)
         cv2.imshow("Depth", d)
         cv2.imshow("img", img)
 
     
 
-        p_x = -depthVal* (x - intrinsics["px"]) / intrinsics["fx"]
-        p_y = depthVal * (x - intrinsics["py"])/ intrinsics["fy"]
-        p_z = depthVal
+        c_x = -depthVal* (x - intrinsics["px"]) / intrinsics["fx"]
+        c_y = depthVal * (y - intrinsics["py"])/ intrinsics["fy"]
+        c_z = depthVal
 
     
 
-        return p_x, p_y, p_z
+        return c_x, c_y, c_z
 
     
         

@@ -17,10 +17,10 @@ img, d = cam.frames()
 while True:
     img, d = cam.frames()
     
-    graspPosition = cv_utils.calcGraspPoint(img, d, intrinsics=cam.getIntrinsics())
-    if graspPosition:
-        
-        x,y,z = graspPosition
+    calcGraspPointContours = cv_utils.findCirclesInMask(img, d, intrinsics=cam.getIntrinsics())
+    if calcGraspPointContours:
+        #plotCircleAroundCenter
+        x,y,z = calcGraspPointContours
         print(x,y,z)
 
     
