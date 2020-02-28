@@ -65,39 +65,32 @@ def findCirclesInMask(img, d, intrinsics):
     thresh = preprocess_img(img)
     gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
     img_c = cv2.medianBlur(gray,	5)
-    circles	= cv2.HoughCircles(img_c,cv2.HOUGH_GRADIENT,1,120,param1=100,param2=30,minRadius=0,maxRadius=100)
+    circles	= cv2.HoughCircles(img_c,cv2.HOUGH_GRADIENT,1,120,param1=100,param2=30,minRadius=10,maxRadius=20)
     
  
     # detect circles in the image
     #circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, 1.2, 100)
     # ensure at least some circles were found
     if circles is not None:
-	# convert the (x, y) coordinates and radius of the circles to integers
-	    circles = np.round(circles[0, :]).astype("int")
-	    # loop over the (x, y) coordinates and radius of the circles
-	    for (x, y, r) in circles:
-		    # draw the circle in the output image, then draw a rectangle
-		    # corresponding to the center of the circle
-		    cv2.circle(img, (x, y), r, (0, 255, 0), 4)
-		    cv2.rectangle(img, (x - 5, y - 5), (x + 5, y + 5), (0, 128, 255), -1)
-	        # show the output image
-	        
+        # convert the (x, y) coordinates and radius of the circles to integers
+        circles = np.round(circles[0, :]).astype("int")
+        # loop over the (x, y) coordinates and radius of the circles
+        for (x, y, r) in circles:
+            # draw the circle in the output image, then draw a rectangle
+            # corresponding to the center of the circle
+            cv2.circle(img, (x, y), r, (0, 255, 0), 4)
+            cv2.rectangle(img, (x - 5, y - 5), (x + 5, y + 5), (0, 128, 255), -1)
+                        
+            depthVal = calcDepth(d, int(y), int(x))
+            
+            c_x = -depthVal* (x - intrinsics["px"]) / intrinsics["fx"]
+            c_y = depthVal * (y - intrinsics["py"]) / intrinsics["fy"]
+            c_z = depthVal
 
-        
-   
-        
-    depthVal = calcDepth(d, int(y), int(x))
-        
-        
-    c_x = -depthVal* (x - intrinsics["px"]) / intrinsics["fx"]
-    c_y = depthVal * (y - intrinsics["py"])/ intrinsics["fy"]
-    c_z = depthVal
-
-    
-    cv2.imshow("output", np.hstack([img]))
-    return c_x, c_y, c_z
-
-    
+            cv2.imshow("output", np.hstack([img]))
+            return c_x, c_y, c_z
+            
+    return 0, 0 ,0
 
 
 def plotCircleAroundCenter(img, x, y, color=(255, 0, 0)):
@@ -172,7 +165,7 @@ def calcGraspPointContours(img, d, intrinsics):
     thresh = preprocess_img(img)
     rects = []
     out_cnts = []
-    #todo hough transformation 
+    
     #contours,hierarchy = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
 
     cnts = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL,
