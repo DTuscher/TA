@@ -8,10 +8,19 @@ import numpy as np
 import cv_utils
 import sys
 
+from scipy.spatial.transform import Rotation as R
+
 
 cam = RealsenseSensor("realsense_config.json") 
 cam.start()
 img, d = cam.frames()
+ 
+t = [0.5, 0.5, 0.5]              # x, y, z
+r_quat = [0, 0, 0.707, 0.707]    # x, y, z, w
+
+rot = R.from_quat(r_quat)
+
+r_mat = rot.as_matrix()
 
 
 object_type = input("Welches Objekt willst du greifen? r: Rechteck, c: Kreis, a: beliebig   ")
@@ -34,3 +43,27 @@ if grasp_point:
     answer = input("Willst du das Objekt wirklich greifen? y/n   ")
     if answer == "n":
         sys.exit()
+    
+    # griffpunkt 
+    grasp_pos_cam = np.array([x,y,z])
+
+    # berechne den griffpunkt in weltkoordinaten
+    grasp_pos_world = t + r_mat @ grasp_pos_cam
+
+    print("Griffpunkt in Welt: ",grasp_pos_world)
+    # pre-grasp position
+
+    pre_grasp_pos = grasp_pos_world
+
+    # pre-grasp 10 cm über dem objekt
+    pre_grasp_pos[2] += 0.1
+
+    print("Pre-Grasp position: ",pre_grasp_pos)
+
+
+
+
+
+
+
+    
