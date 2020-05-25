@@ -131,16 +131,3 @@ if grasp_point:
 
     # go to home !!!!!!!!!!!!!!!! HARDCODED VEL AND ACC !!!!!!
     rob.movej(q_home, acc=0.01, vel=0.01)
-    
-
-
-
-
-
-
-
-
-
-
-
-    
