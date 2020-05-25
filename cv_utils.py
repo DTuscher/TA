@@ -125,8 +125,7 @@ def find_rects_in_image(img,d,intrinsics):
         cX = int((M["m10"] / M["m00"]))
         cY = int((M["m01"] / M["m00"]))
         peri = cv2.arcLength(c, True)
-        approx = cv2.approxPolyDP(c, 0.1 * peri, True)
-        print(approx)
+        approx = cv2.approxPolyDP(c, 0.04 * peri, True)
         if len(approx) == 4:
             rect = cv2.boundingRect(approx)
             x, y, w, h = rect
@@ -136,7 +135,7 @@ def find_rects_in_image(img,d,intrinsics):
             
             v = w * h
             print(v)
-            if v > (img.shape[0] * img.shape[1]) / 2:
+            if v > (img.shape[0] * img.shape[1]) - 50:
                 continue
             elif v > max_v:
                 greatest_rect = rect
@@ -172,6 +171,8 @@ def preprocess_img(img):
     img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
     blur_img = cv2.GaussianBlur(img.copy(), (5,5), 5)
     edged = cv2.Canny(blur_img, 80, 150)
+    cv2.imshow("edged", edged)
+
     edged = cv2.dilate(edged, None, iterations=2)
     blurred = cv2.GaussianBlur(edged, (5, 5), 20)
     thresh = cv2.threshold(blurred, 60, 255, cv2.THRESH_BINARY)[1]
@@ -181,7 +182,6 @@ def preprocess_img(img):
     
     cv2.imshow("blurred", blurred)
     cv2.imshow("blur_img", blur_img)
-    cv2.imshow("edged", edged)
 
     return thresh
 
