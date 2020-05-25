@@ -62,7 +62,6 @@ def findRectsInMask(mask):
         return centers, cnts
 
 def findCirclesInMask(img, d, intrinsics):
-    thresh = preprocess_img(img)
     gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
     img_c = cv2.medianBlur(gray,	5)
     circles	= cv2.HoughCircles(img_c,cv2.HOUGH_GRADIENT,1,120,param1=100,param2=30,minRadius=10,maxRadius=20)
@@ -86,7 +85,7 @@ def findCirclesInMask(img, d, intrinsics):
             cv2.imshow("Depth", d)
             
 
-            cv2.imshow("output", np.hstack([img]))
+            cv2.imshow("output", img[:, :, ::-1])
             return c_x, c_y, c_z
             
     return 0, 0 ,0
@@ -107,16 +106,18 @@ def plotBoundingRect1 (img, c):
     return cv2.rectangle(img,(x,y),(x+w,y+h),(-1,255,3),2)
 
 
-def find_shapes_in_image(img,d,intrinsics):
-    rects = []
-    out_cnts = []
-    gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-    thresh = cv2.threshold(blurred, 60, 255, cv2.THRESH_BINARY)[1]
- 
+def find_rects_in_image(img,d,intrinsics):
+    thresh = preprocess_img(img)
+
+    #contours,hierarchy = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+
     cnts = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL,
 	    cv2.CHAIN_APPROX_SIMPLE)
     cnts = imutils.grab_contours(cnts)
+    greatest_rect = None
+    max_circ = None
+    max_v = 0
+    max_cont = None
     for c in cnts:
         M = cv2.moments(c)
         if M["m00"] == 0:
@@ -124,29 +125,43 @@ def find_shapes_in_image(img,d,intrinsics):
         cX = int((M["m10"] / M["m00"]))
         cY = int((M["m01"] / M["m00"]))
         peri = cv2.arcLength(c, True)
-        approx = cv2.approxPolyDP(c, 0.04 * peri, True)
+        approx = cv2.approxPolyDP(c, 0.1 * peri, True)
+        print(approx)
         if len(approx) == 4:
             rect = cv2.boundingRect(approx)
-            rects.append(rect)
-            out_cnts.append(c)
-
-            for (x, y, r) in c:
-
-                cv2.circle(img, (x, y), r, (0, 255, 0), 4)
-                cv2.rectangle(img, (x - 5, y - 5), (x + 5, y + 5), (0, 128, 255), -1)
-                        
-                depthVal = calcDepth(d, int(y), int(x))
+            x, y, w, h = rect
+            circ = cv2.minEnclosingCircle(approx)
+            max_cont = approx
+            print(rect)
             
-                c_x = -depthVal* (x - intrinsics["px"]) / intrinsics["fx"]
-                c_y = depthVal * (y - intrinsics["py"]) / intrinsics["fy"]
-                c_z = depthVal
-            
-                cv2.imshow("Depth", d)
-            
+            v = w * h
+            print(v)
+            if v > (img.shape[0] * img.shape[1]) / 2:
+                continue
+            elif v > max_v:
+                greatest_rect = rect
+                max_v = v
+                max_circ = circ
+        
+    if greatest_rect is not None:
+        x, y, w, h = greatest_rect
 
-                cv2.imshow("output", np.hstack([img]))
-                return c_x, c_y, c_z
-    
+        (x, y), r = max_circ
+        plotCircleAroundCenter(img, x, y)
+            
+        depthVal = calcDepth(d, int(y), int(x))
+
+        c_x = -depthVal* (x - intrinsics["px"]) / intrinsics["fx"]
+        c_y = depthVal * (y - intrinsics["py"]) / intrinsics["fy"]
+
+        c_z = depthVal
+
+        cv2.drawContours(img,[max_cont],-1, (0, 255, 0), 2)
+
+        cv2.imshow("Depth", d)
+        cv2.imshow("output", img[:, :, ::-1])
+        return c_x, c_y, c_z
+
 
 
 
@@ -154,7 +169,7 @@ def preprocess_img(img):
     
     cv2.imshow("img", img)
     gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY) 
-    img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)[55:800, 100:525]
+    img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
     blur_img = cv2.GaussianBlur(img.copy(), (5,5), 5)
     edged = cv2.Canny(blur_img, 80, 150)
     edged = cv2.dilate(edged, None, iterations=2)
@@ -199,7 +214,7 @@ def calcGraspPointContours(img, d, intrinsics):
         cv2.drawContours(img,cnts,-1, (0, 255, 0), 2)
         
         cv2.imshow("Depth", d)
-        cv2.imshow("img", img)
+        cv2.imshow("img", img[:, :, ::-1])
 
     
 
@@ -210,36 +225,5 @@ def calcGraspPointContours(img, d, intrinsics):
     
 
         return c_x, c_y, c_z
-
-    
-        
-   
-
-    for i, c in enumerate(cnts):
-        M = cv2.moments(c)
-
-        if M["m00"] == 0:
-            continue#
-        cX = int((M["m10"] / M["m00"]))
-        cY = int((M["m01"] / M["m00"]))
-        peri = cv2.arcLength(c, True)
-   
-
-        approx = cv2.approxPolyDP(c, 0.1 * peri, True)
-        if len(approx) == 4:
-
-            rect = cv2.boundingRect(approx)
-            rects.append(c)
-            out_cnts.append(c)
-    if rects:
-        max_contour =  max(rects, key = cv2.contourArea)
-        
-        mask = np.zeros(img.shape[:2])
-        cv2.drawContours(mask, max_contour, -1, (255),1)
-        
-        cv2.imshow("hull", mask)
-        img = plotBoundingRect1(img,max_contour) 
-        img = plotCircleAroundCenter(img, x, y)
-    
 
     
