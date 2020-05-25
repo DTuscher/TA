@@ -83,6 +83,7 @@ if grasp_point:
     grasp_pos_cam = np.array([x,y,z])
 
     # berechne den griffpunkt in weltkoordinaten
+    # X_w = T_c + R_c * X_c
     grasp_pos_world = t + r_mat @ grasp_pos_cam
 
     print("Griffpunkt in Welt: ",grasp_pos_world)
