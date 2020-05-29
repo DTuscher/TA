@@ -78,9 +78,9 @@ def findCirclesInMask(img, d, intrinsics):
                         
             depthVal = calcDepth(d, int(y), int(x))
             
-            c_x = -depthVal* (x - intrinsics["px"]) / intrinsics["fx"]
-            c_y = depthVal * (y - intrinsics["py"]) / intrinsics["fy"]
-            c_z = depthVal
+            c_x = depthVal* (x - intrinsics["px"]) / intrinsics["fx"]
+            c_y = -depthVal * (y - intrinsics["py"]) / intrinsics["fy"]
+            c_z = -depthVal
             
             cv2.imshow("Depth", d)
             
@@ -108,7 +108,6 @@ def plotBoundingRect1 (img, c):
 
 def find_rects_in_image(img,d,intrinsics):
     thresh = preprocess_img(img)
-
     #contours,hierarchy = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
 
     cnts = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL,
@@ -150,10 +149,10 @@ def find_rects_in_image(img,d,intrinsics):
             
         depthVal = calcDepth(d, int(y), int(x))
 
-        c_x = -depthVal* (x - intrinsics["px"]) / intrinsics["fx"]
-        c_y = depthVal * (y - intrinsics["py"]) / intrinsics["fy"]
+        c_x = depthVal * (x - intrinsics["px"]) / intrinsics["fx"]
+        c_y = -depthVal * (y - intrinsics["py"]) / intrinsics["fy"]
 
-        c_z = depthVal
+        c_z = -depthVal
 
         cv2.drawContours(img,[max_cont],-1, (0, 255, 0), 2)
 
@@ -218,9 +217,9 @@ def calcGraspPointContours(img, d, intrinsics):
 
     
 
-        c_x = -depthVal* (x - intrinsics["px"]) / intrinsics["fx"]
-        c_y = depthVal * (y - intrinsics["py"])/ intrinsics["fy"]
-        c_z = depthVal
+        c_x = depthVal* (x - intrinsics["px"]) / intrinsics["fx"]
+        c_y = -depthVal * (y - intrinsics["py"])/ intrinsics["fy"]
+        c_z = -depthVal
 
     
 
